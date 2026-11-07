@@ -1,0 +1,71 @@
+name: Kafka Activity Demo CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend:
+    name: Spring Boot Backend Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: activity_tracking_db
+          POSTGRES_USER: activity_user
+          POSTGRES_PASSWORD: ci_password
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U activity_user -d activity_tracking_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Run backend tests
+        working-directory: activity-consumer
+        env:
+          DB_PASSWORD: ci_password
+        run: ./mvnw -B clean test
+
+  frontend:
+    name: React Frontend Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: activity-dashboard/package-lock.json
+
+      - name: Install dependencies
+        working-directory: activity-dashboard
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: activity-dashboard
+        run: npm run lint
+
+      - name: Build frontend
+        working-directory: activity-dashboard
+        run: npm run build

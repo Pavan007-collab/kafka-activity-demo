@@ -1,8 +1,7 @@
-
 services:
+
   kafka:
     image: apache/kafka:latest
-    container_name: activity-kafka
     ports:
       - "9092:9092"
     environment:
@@ -19,10 +18,10 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 1
+    restart: unless-stopped
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    container_name: activity-kafka-ui
     ports:
       - "8091:8080"
     environment:
@@ -31,3 +30,26 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
     depends_on:
       - kafka
+    restart: unless-stopped
+
+  activity-backend:
+    image: kafka-activity-consumer:1.0
+    ports:
+      - "8092:8092"
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be configured in .env}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://host.docker.internal:5434/activity_tracking_db
+      SPRING_DATASOURCE_USERNAME: activity_user
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SERVER_PORT: 8092
+    depends_on:
+      - kafka
+    restart: unless-stopped
+
+  activity-dashboard:
+    image: kafka-activity-dashboard:1.0
+    ports:
+      - "5174:80"
+    depends_on:
+      - activity-backend
+    restart: unless-stopped
